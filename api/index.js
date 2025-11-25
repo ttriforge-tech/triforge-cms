@@ -1,7 +1,2 @@
-// api/index.js
-import express from "express";
-const app = express();
-app.get("/", (req, res) => {
-  res.json({ message: "Hello from Express on Vercel" });
-});
+import app from "../src/index.js";
 export default app;
