@@ -5,7 +5,7 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    // ⬇️ untuk lokal jalankan dev.js (bukan src/index.js langsung)
+    
     "start": "node dev.js",
     "dev": "nodemon dev.js",
 
