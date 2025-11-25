@@ -5,6 +5,15 @@ import { env } from "./config/env.js";
 import { prisma } from "./config/db.js";
 import { apiRouter } from "./routes/index.js";
 
+// Pastikan prisma sudah ready (karena db.js async di Vercel)
+async function waitForPrisma() {
+  while (!prisma) {
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}
+
+await waitForPrisma();
+
 const app = express();
 
 // middleware global

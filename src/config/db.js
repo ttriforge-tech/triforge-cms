@@ -1,31 +1,26 @@
-// src/config/db.js
-// import { PrismaClient } from "@prisma/client";
-
-// export const prisma = new PrismaClient();
-
-// src/config/db.js
 import { PrismaClient } from "@prisma/client";
-import { PrismaNeon } from "@prisma/adapter-neon";
-import { neonConfig, Pool } from "@neondatabase/serverless";
-import ws from "ws";
 
-// konfigurasi WebSocket untuk Neon
-neonConfig.webSocketConstructor = ws;
+let prisma;
 
-// buat pool Neon
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
+async function init() {
+  if (process.env.VERCEL) {
+    const { NeonHTTPAdapter } = await import("@prisma/adapter-neon");
+    const { Pool } = await import("neon-serverless");
 
-// adapter Prisma untuk Neon
-const adapter = new PrismaNeon(pool);
+    const pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+    });
 
-// inisiasi Prisma Client dengan adapter Neon
-// supaya tidak bikin banyak instance di serverless, bisa pakai pattern global
-const prisma = global.prisma || new PrismaClient({ adapter });
+    const adapter = new NeonHTTPAdapter({ pool });
 
-if (process.env.NODE_ENV !== "production") {
-  global.prisma = prisma;
+    prisma = new PrismaClient({
+      adapter,
+    });
+  } else {
+    prisma = new PrismaClient();
+  }
 }
+
+await init();
 
 export { prisma };
