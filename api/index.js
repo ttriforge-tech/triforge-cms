@@ -12,7 +12,7 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
-    message: "Serverless backend running on Vercel",
+    message: "Serverless Backend (Express + Prisma + Neon) berjalan di Vercel",
   });
 });
 

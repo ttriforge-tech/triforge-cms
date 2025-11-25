@@ -5,9 +5,18 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "db:migrate": "prisma migrate dev --name init_triforge",
+    "db:generate": "prisma generate",
+    "db:seed": "node prisma/seed.js",
+    "postinstall": "npx prisma generate",
+    "build": "npx prisma migrate deploy && npx prisma generate",
+    "vercel-build": "npx prisma migrate deploy && npx prisma generate"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.0.2",
+    "@prisma/adapter-neon": "^7.0.1",
     "@prisma/client": "^5.20.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
