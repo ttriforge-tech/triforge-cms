@@ -1,21 +1,5 @@
-import express from "express";
-import serverless from "serverless-http";
-import cors from "cors";
-import { prisma } from "../src/config/db.js";
-import { apiRouter } from "../src/routes/index.js";
+// api/index.js
+import app from "../src/index.js";
 
-const app = express();
-
-app.use(cors());
-app.use(express.json());
-
-app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    message: "Serverless Backend (Express + Prisma + Neon) berjalan di Vercel",
-  });
-});
-
-app.use("/api", apiRouter);
-
-export default serverless(app);
+// Vercel butuh default export sebagai handler
+export default app;

@@ -29,13 +29,7 @@ app.use((err, req, res, next) => {
   res.status(500).json({ message: "Internal server error" });
 });
 
-const server = app.listen(env.port, () => {
-  console.log(`🚀 Server listening on port ${env.port}`);
-});
-
-// graceful shutdown
-process.on("SIGINT", async () => {
-  console.log("Shutting down...");
-  await prisma.$disconnect();
-  server.close(() => process.exit(0));
-});
+// ❗ PENTING: JANGAN app.listen di file ini
+// Cukup export app untuk dipakai Vercel & dev.js
+export { app, prisma, env };
+export default app;
