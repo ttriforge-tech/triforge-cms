@@ -1,6 +1,16 @@
 // src/modules/projects/project.controller.js
 import { prisma } from "../../config/db.js";
 import { projectCreateSchema, projectUpdateSchema } from "./project.schema.js";
+import { v2 as cloudinary } from "cloudinary";
+
+// ==============================
+// Cloudinary config
+// ==============================
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 // DTO mapper: FE tetap terima field yang sama
 const mapProjectToDto = (project) => ({
@@ -44,12 +54,26 @@ function normalizeTags(raw) {
     .filter(Boolean);
 }
 
-// Helper: dari file (buffer) jadi data URL base64
-function fileToDataUrl(file) {
+// Helper: upload file (buffer) ke Cloudinary, return result
+function uploadToCloudinary(file) {
   if (!file) return null;
-  const mime = file.mimetype || "image/jpeg";
-  const base64 = file.buffer.toString("base64");
-  return `data:${mime};base64,${base64}`;
+
+  const folder = process.env.CLOUDINARY_UPLOAD_FOLDER || "triforge/projects";
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: "image",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    stream.end(file.buffer);
+  });
 }
 
 export async function listProjects(req, res) {
@@ -125,16 +149,24 @@ export async function createProject(req, res) {
     } = parsed.data;
 
     // ==============================
-    // Handle IMAGE (file / string)
+    // Handle IMAGE (file / string) via Cloudinary
     // ==============================
     let finalImage = null;
 
-    // 1) Kalau ada file dari multer → jadikan data URL base64
+    // 1) Kalau ada file dari multer → upload ke Cloudinary
     if (req.file) {
-      finalImage = fileToDataUrl(req.file);
+      try {
+        const uploadResult = await uploadToCloudinary(req.file);
+        finalImage = uploadResult.secure_url;
+      } catch (err) {
+        console.error("Cloudinary upload error (create):", err);
+        return res.status(500).json({
+          message: "Gagal meng-upload gambar ke Cloudinary",
+        });
+      }
     }
 
-    // 2) Kalau tidak ada file tapi body.image ada → pakai string itu (URL / base64)
+    // 2) Kalau tidak ada file tapi body.image ada → pakai string itu (misal: URL)
     if (!finalImage && typeof imageFromBody === "string") {
       const trimmed = imageFromBody.trim();
       if (trimmed) {
@@ -146,7 +178,7 @@ export async function createProject(req, res) {
     if (!finalImage) {
       return res.status(400).json({
         message:
-          "Gambar wajib diisi. Upload file (field 'image') atau kirim string di field 'image'.",
+          "Gambar wajib diisi. Upload file (field 'image') atau kirim URL di field 'image'.",
       });
     }
 
@@ -169,7 +201,7 @@ export async function createProject(req, res) {
         result,
         details,
         tags: JSON.stringify(tags),
-        image: finalImage, // <— string (URL / data URL base64)
+        image: finalImage, // <— sekarang URL Cloudinary / URL biasa
         imageAlt: imageAlt || title,
       },
       include: { segment: true },
@@ -233,18 +265,26 @@ export async function updateProject(req, res) {
     }
 
     // ==============================
-    // Handle IMAGE update
+    // Handle IMAGE update (Cloudinary)
     // ==============================
     let finalImage = existing.image;
 
-    // 1) Kalau ada file baru → override dengan base64
+    // 1) Kalau ada file baru → upload ke Cloudinary
     if (req.file) {
-      finalImage = fileToDataUrl(req.file);
+      try {
+        const uploadResult = await uploadToCloudinary(req.file);
+        finalImage = uploadResult.secure_url;
+      } catch (err) {
+        console.error("Cloudinary upload error (update):", err);
+        return res.status(500).json({
+          message: "Gagal meng-upload gambar ke Cloudinary",
+        });
+      }
     }
     // 2) Kalau tidak ada file, tapi ada field image di body
     else if (Object.prototype.hasOwnProperty.call(data, "image")) {
       if (typeof data.image === "string" && data.image.trim()) {
-        finalImage = data.image.trim(); // bisa URL / base64
+        finalImage = data.image.trim(); // bisa URL manual / Cloudinary lama
       }
       // Kalau dikirim kosong, kita biarkan existing.image (tidak dihapus)
     }
@@ -283,7 +323,8 @@ export async function deleteProject(req, res) {
 
     await prisma.project.delete({ where: { id } });
 
-    // (opsional) kalau dulu sempat simpan ke disk, di sini bisa ditambah fs.unlink
+    // (opsional) kalau mau, di sini bisa tambahkan hapus file di Cloudinary
+    // dengan menyimpan public_id di DB. Sekarang kita biarkan saja.
 
     return res.status(204).send();
   } catch (err) {
