@@ -51,7 +51,7 @@ npm-cache/
 .eslintcache
 
 # Uploaded files (jika Express menangani upload)
-uploads/
+# uploads/
 temp/
 tmp/
 
