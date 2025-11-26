@@ -2,6 +2,7 @@
 import { prisma } from "../../config/db.js";
 import { projectCreateSchema, projectUpdateSchema } from "./project.schema.js";
 import { v2 as cloudinary } from "cloudinary";
+import "dotenv/config";
 
 // ==============================
 // Cloudinary config
