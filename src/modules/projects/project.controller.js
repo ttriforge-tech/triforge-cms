@@ -1,8 +1,8 @@
 // src/modules/projects/project.controller.js
+import "dotenv/config";
+import { v2 as cloudinary } from "cloudinary";
 import { prisma } from "../../config/db.js";
 import { projectCreateSchema, projectUpdateSchema } from "./project.schema.js";
-import { v2 as cloudinary } from "cloudinary";
-import "dotenv/config";
 
 // ==============================
 // Cloudinary config
@@ -13,7 +13,14 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Debug env Cloudinary (boleh dihapus kalau sudah yakin jalan)
+if (process.env.NODE_ENV !== "production") {
+  console.log("CLOUDINARY_CLOUD_NAME =", process.env.CLOUDINARY_CLOUD_NAME);
+}
+
+// ==============================
 // DTO mapper: FE tetap terima field yang sama
+// ==============================
 const mapProjectToDto = (project) => ({
   id: project.id,
   segment: project.segment.slug,
@@ -26,7 +33,9 @@ const mapProjectToDto = (project) => ({
   imageAlt: project.imageAlt,
 });
 
+// ==============================
 // Helper: normalisasi tags dari body (array / JSON string / "a, b, c")
+// ==============================
 function normalizeTags(raw) {
   if (raw === undefined || raw === null) return undefined;
 
@@ -45,7 +54,7 @@ function normalizeTags(raw) {
       return parsed.map((t) => String(t));
     }
   } catch {
-    // ignore
+    // ignore, lanjut ke format koma
   }
 
   // Fallback: pisah koma
@@ -55,7 +64,9 @@ function normalizeTags(raw) {
     .filter(Boolean);
 }
 
+// ==============================
 // Helper: upload file (buffer) ke Cloudinary, return result
+// ==============================
 function uploadToCloudinary(file) {
   if (!file) return null;
 
@@ -73,10 +84,14 @@ function uploadToCloudinary(file) {
       }
     );
 
+    // IMPORTANT: file.buffer harus ada (multer.memoryStorage)
     stream.end(file.buffer);
   });
 }
 
+// ==============================
+// Controller: List projects
+// ==============================
 export async function listProjects(req, res) {
   try {
     const { segment } = req.query;
@@ -97,6 +112,9 @@ export async function listProjects(req, res) {
   }
 }
 
+// ==============================
+// Controller: Get single project
+// ==============================
 export async function getProject(req, res) {
   try {
     const id = Number(req.params.id);
@@ -117,6 +135,9 @@ export async function getProject(req, res) {
   }
 }
 
+// ==============================
+// Controller: Create project
+// ==============================
 export async function createProject(req, res) {
   try {
     // Semua field body datang sebagai string (multipart/form-data)
@@ -160,9 +181,15 @@ export async function createProject(req, res) {
         const uploadResult = await uploadToCloudinary(req.file);
         finalImage = uploadResult.secure_url;
       } catch (err) {
-        console.error("Cloudinary upload error (create):", err);
+        console.error("Cloudinary upload error (create):");
+        console.error(" message:", err.message);
+        console.error(" http_code:", err.http_code);
+        console.error(" name:", err.name);
+        console.error(err);
+
         return res.status(500).json({
           message: "Gagal meng-upload gambar ke Cloudinary",
+          detail: err.message, // bisa dihapus nanti kalau sudah stabil
         });
       }
     }
@@ -202,7 +229,7 @@ export async function createProject(req, res) {
         result,
         details,
         tags: JSON.stringify(tags),
-        image: finalImage, // <— sekarang URL Cloudinary / URL biasa
+        image: finalImage, // URL Cloudinary / URL biasa
         imageAlt: imageAlt || title,
       },
       include: { segment: true },
@@ -215,6 +242,9 @@ export async function createProject(req, res) {
   }
 }
 
+// ==============================
+// Controller: Update project
+// ==============================
 export async function updateProject(req, res) {
   try {
     const id = Number(req.params.id);
@@ -276,9 +306,15 @@ export async function updateProject(req, res) {
         const uploadResult = await uploadToCloudinary(req.file);
         finalImage = uploadResult.secure_url;
       } catch (err) {
-        console.error("Cloudinary upload error (update):", err);
+        console.error("Cloudinary upload error (update):");
+        console.error(" message:", err.message);
+        console.error(" http_code:", err.http_code);
+        console.error(" name:", err.name);
+        console.error(err);
+
         return res.status(500).json({
           message: "Gagal meng-upload gambar ke Cloudinary",
+          detail: err.message, // bisa dihapus nanti
         });
       }
     }
@@ -313,6 +349,9 @@ export async function updateProject(req, res) {
   }
 }
 
+// ==============================
+// Controller: Delete project
+// ==============================
 export async function deleteProject(req, res) {
   try {
     const id = Number(req.params.id);

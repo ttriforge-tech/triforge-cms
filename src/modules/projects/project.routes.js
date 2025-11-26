@@ -1,7 +1,6 @@
 // src/modules/projects/project.routes.js
 import { Router } from "express";
 import multer from "multer";
-
 import {
   listProjects,
   getProject,
@@ -13,34 +12,34 @@ import { requireAuth } from "../../middleware/auth.js";
 
 export const projectRouter = Router();
 
-// ============================
-// Multer pakai MEMORY STORAGE
-// ============================
-const fileFilter = (req, file, cb) => {
-  const allowed = ["image/jpeg", "image/png", "image/jpg", "image/webp"];
-  if (allowed.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error("File harus berupa gambar (JPG/PNG/WebP)."), false);
-  }
-};
+// ==========================
+// Multer config (memory)
+// ==========================
+const storage = multer.memoryStorage();
 
 const upload = multer({
-  storage: multer.memoryStorage(), // <— TIDAK pakai disk
-  fileFilter,
+  storage,
   limits: {
-    fileSize: 3 * 1024 * 1024, // 3MB
+    fileSize: 5 * 1024 * 1024, // max 5MB, bisa kamu ubah
+  },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith("image/")) {
+      return cb(new Error("File harus berupa gambar"), false);
+    }
+    cb(null, true);
   },
 });
 
-// ============================
-// ROUTES
-// ============================
+// ==========================
+// Routes
+// ==========================
 projectRouter.get("/", listProjects);
 projectRouter.get("/:id", getProject);
 
-// CREATE & UPDATE pakai upload.single("image")
+// CREATE: pakai upload.single("image")
 projectRouter.post("/", requireAuth, upload.single("image"), createProject);
+
+// UPDATE: bisa kirim gambar baru (opsional)
 projectRouter.put("/:id", requireAuth, upload.single("image"), updateProject);
 
 projectRouter.delete("/:id", requireAuth, deleteProject);
