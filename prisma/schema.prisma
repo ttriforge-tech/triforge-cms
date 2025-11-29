@@ -46,6 +46,7 @@ model ContactMessage {
   name      String
   email     String
   whatsapp  String?
+  isRead    Boolean  @default(false)
   message   String
   createdAt DateTime @default(now())
 }

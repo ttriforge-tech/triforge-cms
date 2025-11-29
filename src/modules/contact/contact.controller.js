@@ -2,6 +2,7 @@
 import { prisma } from "../../config/db.js";
 import { contactSchema } from "./contact.schema.js";
 
+// CREATE pesan dari website (public, isRead selalu false)
 export async function createContactMessage(req, res) {
   try {
     const parsed = contactSchema.safeParse(req.body);
@@ -21,6 +22,7 @@ export async function createContactMessage(req, res) {
         email: data.email,
         whatsapp: data.whatsapp ?? null,
         message: data.message,
+        // 🔹 isRead tidak di-override, biarkan default(false)
       },
     });
 
@@ -52,6 +54,9 @@ export async function listContactMessages(req, res) {
 export async function getContactMessage(req, res) {
   try {
     const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ message: "ID tidak valid" });
+    }
 
     const msg = await prisma.contactMessage.findUnique({
       where: { id },
@@ -68,17 +73,20 @@ export async function getContactMessage(req, res) {
   }
 }
 
-// UPDATE pesan (misal koreksi, atau nanti tambahin field status)
+// UPDATE pesan (koreksi + set isRead)
 export async function updateContactMessage(req, res) {
   try {
     const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ message: "ID tidak valid" });
+    }
 
     const existing = await prisma.contactMessage.findUnique({ where: { id } });
     if (!existing) {
       return res.status(404).json({ message: "Contact message not found" });
     }
 
-    // boleh partial: semua field optional
+    // semua field optional (name, email, whatsapp, message, isRead)
     const parsed = contactSchema.partial().safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({
@@ -89,14 +97,34 @@ export async function updateContactMessage(req, res) {
 
     const data = parsed.data;
 
+    // 🔹 build payload update secara aman (supaya false tetap kepakai)
+    const updatePayload = {};
+
+    if (data.name !== undefined) {
+      updatePayload.name = data.name;
+    }
+    if (data.email !== undefined) {
+      updatePayload.email = data.email;
+    }
+    if (data.whatsapp !== undefined) {
+      updatePayload.whatsapp = data.whatsapp;
+    }
+    if (data.message !== undefined) {
+      updatePayload.message = data.message;
+    }
+    if (typeof data.isRead === "boolean") {
+      updatePayload.isRead = data.isRead; // false juga disimpan
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return res
+        .status(400)
+        .json({ message: "Tidak ada field yang diupdate." });
+    }
+
     const updated = await prisma.contactMessage.update({
       where: { id },
-      data: {
-        name: data.name ?? existing.name,
-        email: data.email ?? existing.email,
-        whatsapp: data.whatsapp ?? existing.whatsapp,
-        message: data.message ?? existing.message,
-      },
+      data: updatePayload,
     });
 
     return res.json(updated);
@@ -110,6 +138,9 @@ export async function updateContactMessage(req, res) {
 export async function deleteContactMessage(req, res) {
   try {
     const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ message: "ID tidak valid" });
+    }
 
     const existing = await prisma.contactMessage.findUnique({ where: { id } });
     if (!existing) {
